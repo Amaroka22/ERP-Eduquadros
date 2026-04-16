@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm --version)",
+      "Bash(pnpm --version)",
+      "Bash(npm install:*)",
+      "Bash(sudo npm:*)",
+      "Bash(curl -fsSL https://get.pnpm.io/install.sh)",
+      "Bash(sh -)",
+      "Bash(export PNPM_HOME=\"$HOME/.local/share/pnpm\")",
+      "Bash(export PATH=\"$PNPM_HOME:$PATH\")",
+      "Bash(mkdir -p ~/.npm-global)",
+      "Bash(npm config:*)",
+      "Bash(export PATH=\"$HOME/.npm-global/bin:$PATH\")",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm create:*)",
+      "Bash(nest new:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm dev:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(kill 18434)",
+      "Bash(npx create-expo-app@latest mobile --template blank-typescript)",
+      "Bash(pnpm install:*)",
+      "Bash(~/.npm-global/bin/pnpm --filter web build)"
+    ]
+  }
+}

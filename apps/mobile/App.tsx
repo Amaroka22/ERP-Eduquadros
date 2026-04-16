@@ -1,0 +1,11 @@
+import { StatusBar } from 'expo-status-bar';
+import TabNavigator from './src/navigation/TabNavigator';
+
+export default function App() {
+  return (
+    <>
+      <StatusBar style="dark" />
+      <TabNavigator />
+    </>
+  );
+}

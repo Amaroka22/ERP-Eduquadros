@@ -1,0 +1,434 @@
+// ERP Edu Quadros — Schema Prisma
+// Banco: PostgreSQL | ORM: Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTENTICAÇÃO
+// ============================================================
+
+model Usuario {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  senha     String
+  perfil    Perfil   @default(OPERADOR)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+enum Perfil {
+  ADMIN
+  FINANCEIRO
+  OPERADOR
+}
+
+// ============================================================
+// CADASTROS BASE
+// ============================================================
+
+model Pessoa {
+  id         String      @id @default(cuid())
+  tipo       TipoPessoa
+  nome       String
+  nomeFantasia String?
+  documento  String      @unique  // CPF ou CNPJ
+  ie         String?     // Inscrição Estadual
+  im         String?     // Inscrição Municipal
+  email      String?
+  telefone   String?
+  celular    String?
+  site       String?
+  obs        String?
+  ativo      Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Endereço
+  cep        String?
+  logradouro String?
+  numero     String?
+  complemento String?
+  bairro     String?
+  cidade     String?
+  uf         String?
+  pais       String?     @default("Brasil")
+
+  // Relações
+  cliente    Cliente?
+  fornecedor Fornecedor?
+
+  @@map("pessoas")
+}
+
+enum TipoPessoa {
+  PF
+  PJ
+}
+
+model Cliente {
+  id           String   @id @default(cuid())
+  pessoaId     String   @unique
+  pessoa       Pessoa   @relation(fields: [pessoaId], references: [id])
+  limiteCredito Decimal? @db.Decimal(12, 2)
+  condicaoPagamento String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  pedidos      Pedido[]
+  orcamentos   Orcamento[]
+  quadros      Quadro[]
+  contasReceber ContaReceber[]
+
+  @@map("clientes")
+}
+
+model Fornecedor {
+  id        String   @id @default(cuid())
+  pessoaId  String   @unique
+  pessoa    Pessoa   @relation(fields: [pessoaId], references: [id])
+  categoria String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contasPagar ContaPagar[]
+
+  @@map("fornecedores")
+}
+
+// ============================================================
+// PRODUTOS / SERVIÇOS
+// ============================================================
+
+model Produto {
+  id          String       @id @default(cuid())
+  codigo      String       @unique
+  nome        String
+  descricao   String?
+  tipo        TipoProduto
+  unidade     String       @default("UN")
+  preco       Decimal      @db.Decimal(10, 2)
+  custo       Decimal?     @db.Decimal(10, 2)
+  ncm         String?
+  cst         String?
+  ativo       Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  itensPedido    ItemPedido[]
+  itensOrcamento ItemOrcamento[]
+
+  @@map("produtos")
+}
+
+enum TipoProduto {
+  PRODUTO
+  SERVICO
+}
+
+// ============================================================
+// ORÇAMENTOS
+// ============================================================
+
+model Orcamento {
+  id           String         @id @default(cuid())
+  numero       Int            @unique @default(autoincrement())
+  clienteId    String
+  cliente      Cliente        @relation(fields: [clienteId], references: [id])
+  status       StatusOrcamento @default(RASCUNHO)
+  validade     DateTime
+  obs          String?
+  desconto     Decimal?       @db.Decimal(10, 2)
+  subtotal     Decimal        @db.Decimal(12, 2)
+  total        Decimal        @db.Decimal(12, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  itens        ItemOrcamento[]
+  pedido       Pedido?
+
+  @@map("orcamentos")
+}
+
+enum StatusOrcamento {
+  RASCUNHO
+  ENVIADO
+  APROVADO
+  REPROVADO
+  EXPIRADO
+}
+
+model ItemOrcamento {
+  id          String    @id @default(cuid())
+  orcamentoId String
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id])
+  produtoId   String
+  produto     Produto   @relation(fields: [produtoId], references: [id])
+  descricao   String
+  quantidade  Decimal   @db.Decimal(10, 3)
+  unitario    Decimal   @db.Decimal(10, 2)
+  desconto    Decimal?  @db.Decimal(10, 2)
+  total       Decimal   @db.Decimal(12, 2)
+
+  @@map("itens_orcamento")
+}
+
+// ============================================================
+// PEDIDOS DE VENDA
+// ============================================================
+
+model Pedido {
+  id           String        @id @default(cuid())
+  numero       Int           @unique @default(autoincrement())
+  clienteId    String
+  cliente      Cliente       @relation(fields: [clienteId], references: [id])
+  orcamentoId  String?       @unique
+  orcamento    Orcamento?    @relation(fields: [orcamentoId], references: [id])
+  status       StatusPedido  @default(AGUARDANDO)
+  previsaoEntrega DateTime?
+  obs          String?
+  desconto     Decimal?      @db.Decimal(10, 2)
+  subtotal     Decimal       @db.Decimal(12, 2)
+  total        Decimal       @db.Decimal(12, 2)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  itens        ItemPedido[]
+  ordens       OrdemProducao[]
+  contasReceber ContaReceber[]
+  nfe          NotaFiscal?
+
+  @@map("pedidos")
+}
+
+enum StatusPedido {
+  AGUARDANDO
+  CONFIRMADO
+  EM_PRODUCAO
+  PRODUCAO_CONCLUIDA
+  FATURADO
+  ENTREGUE
+  CANCELADO
+}
+
+model ItemPedido {
+  id          String   @id @default(cuid())
+  pedidoId    String
+  pedido      Pedido   @relation(fields: [pedidoId], references: [id])
+  produtoId   String
+  produto     Produto  @relation(fields: [produtoId], references: [id])
+  descricao   String
+  quantidade  Decimal  @db.Decimal(10, 3)
+  unitario    Decimal  @db.Decimal(10, 2)
+  desconto    Decimal? @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(12, 2)
+
+  @@map("itens_pedido")
+}
+
+// ============================================================
+// PRODUÇÃO — específico Edu Quadros
+// ============================================================
+
+model Quadro {
+  id           String       @id @default(cuid())
+  codigo       String       @unique
+  clienteId    String
+  cliente      Cliente      @relation(fields: [clienteId], references: [id])
+  nome         String       // Ex: "Logo Verão 2026"
+  descricao    String?
+  tamanho      String?      // Ex: "40x60cm"
+  malha        String?      // Ex: "120 fios"
+  status       StatusQuadro @default(ATIVO)
+  localizacao  String?      // Prateleira/posição no estoque
+  obs          String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  ordens       OrdemProducao[]
+
+  @@map("quadros")
+}
+
+enum StatusQuadro {
+  ATIVO
+  EM_USO
+  DANIFICADO
+  DESCARTADO
+}
+
+model OrdemProducao {
+  id           String              @id @default(cuid())
+  numero       Int                 @unique @default(autoincrement())
+  pedidoId     String
+  pedido       Pedido              @relation(fields: [pedidoId], references: [id])
+  quadroId     String?
+  quadro       Quadro?             @relation(fields: [quadroId], references: [id])
+  status       StatusOrdemProducao @default(AGUARDANDO)
+  prioridade   Int                 @default(0)
+  previsaoInicio DateTime?
+  previsaoFim  DateTime?
+  inicioReal   DateTime?
+  fimReal      DateTime?
+  quantidadePrevista Int
+  quantidadeProduzida Int?
+  obs          String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("ordens_producao")
+}
+
+enum StatusOrdemProducao {
+  AGUARDANDO
+  EM_GRAVACAO
+  AGUARDANDO_PRODUCAO
+  EM_PRODUCAO
+  CONCLUIDA
+  CANCELADA
+}
+
+// ============================================================
+// FINANCEIRO — Contas a Receber
+// ============================================================
+
+model ContaReceber {
+  id           String             @id @default(cuid())
+  descricao    String
+  clienteId    String?
+  cliente      Cliente?           @relation(fields: [clienteId], references: [id])
+  pedidoId     String?
+  pedido       Pedido?            @relation(fields: [pedidoId], references: [id])
+  categoria    String?
+  centroCusto  String?
+  valor        Decimal            @db.Decimal(12, 2)
+  desconto     Decimal?           @db.Decimal(10, 2)
+  juros        Decimal?           @db.Decimal(10, 2)
+  multa        Decimal?           @db.Decimal(10, 2)
+  valorRecebido Decimal?          @db.Decimal(12, 2)
+  vencimento   DateTime
+  recebimento  DateTime?
+  status       StatusContaReceber @default(PENDENTE)
+  formaPagamento String?
+  banco        String?
+  obs          String?
+  nfNumero     String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@map("contas_receber")
+}
+
+enum StatusContaReceber {
+  PENDENTE
+  RECEBIDO_PARCIAL
+  RECEBIDO
+  VENCIDO
+  CANCELADO
+}
+
+// ============================================================
+// FINANCEIRO — Contas a Pagar
+// ============================================================
+
+model ContaPagar {
+  id           String           @id @default(cuid())
+  descricao    String
+  fornecedorId String?
+  fornecedor   Fornecedor?      @relation(fields: [fornecedorId], references: [id])
+  categoria    String?
+  centroCusto  String?
+  valor        Decimal          @db.Decimal(12, 2)
+  desconto     Decimal?         @db.Decimal(10, 2)
+  juros        Decimal?         @db.Decimal(10, 2)
+  multa        Decimal?         @db.Decimal(10, 2)
+  valorPago    Decimal?         @db.Decimal(12, 2)
+  vencimento   DateTime
+  pagamento    DateTime?
+  status       StatusContaPagar @default(PENDENTE)
+  formaPagamento String?
+  banco        String?
+  obs          String?
+  notaFiscal   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("contas_pagar")
+}
+
+enum StatusContaPagar {
+  PENDENTE
+  PAGO_PARCIAL
+  PAGO
+  VENCIDO
+  CANCELADO
+}
+
+// ============================================================
+// APP STATE — sincronização do estado do frontend
+// ============================================================
+
+model AppState {
+  id        String   @id @default("default")
+  dados     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("app_state")
+}
+
+// ============================================================
+// NOTA FISCAL ELETRÔNICA
+// ============================================================
+
+model NotaFiscal {
+  id           String      @id @default(cuid())
+  pedidoId     String      @unique
+  pedido       Pedido      @relation(fields: [pedidoId], references: [id])
+  numero       String?
+  serie        String?     @default("1")
+  chave        String?     @unique
+  tipo         TipoNF      @default(SAIDA)
+  status       StatusNF    @default(RASCUNHO)
+  dataEmissao  DateTime?
+  dataSaida    DateTime?
+  naturezaOperacao String  @default("VENDA DE PRODUTOS")
+  cfop         String?
+  valorProdutos Decimal?   @db.Decimal(12, 2)
+  valorFrete   Decimal?    @db.Decimal(10, 2)
+  valorDesconto Decimal?   @db.Decimal(10, 2)
+  valorIpi     Decimal?    @db.Decimal(10, 2)
+  valorIcms    Decimal?    @db.Decimal(10, 2)
+  valorPis     Decimal?    @db.Decimal(10, 2)
+  valorCofins  Decimal?    @db.Decimal(10, 2)
+  valorTotal   Decimal?    @db.Decimal(12, 2)
+  xmlUrl       String?
+  pdfUrl       String?
+  obs          String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("notas_fiscais")
+}
+
+enum TipoNF {
+  ENTRADA
+  SAIDA
+}
+
+enum StatusNF {
+  RASCUNHO
+  PROCESSANDO
+  AUTORIZADA
+  CANCELADA
+  REJEITADA
+}
